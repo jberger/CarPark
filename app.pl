@@ -38,7 +38,7 @@ helper pin => sub {
   return $out;
 };
 
-helper door_state => sub { 0 + ! $c->pin(16) };
+helper door_state => sub { 0 + ! shift->pin(16) };
 
 # >0 is out
 my %pins = (
@@ -59,7 +59,7 @@ $r->get('/' => 'index');
 
 my $api = $r->any('/api');
 
-my $door = $r->any('/door');
+my $door = $api->any('/door');
 
 $door->get('/' => sub {
   my $c = shift;
@@ -70,14 +70,13 @@ $door->get('/' => sub {
 my $gpio = $api->any('/gpio');
 
 $gpio->any([qw/GET POST/] => '/:pin' => sub {
-    my $c = shift;
-    my $pin = $c->stash('pin');
-    return $c->reply->not_found unless $pins{$pin};
-    if ($c->req->method eq 'POST') {
-      $c->gpio($pin, $c->req->body);
-    }
-    $c->render(text => $c->gpio($pin));
-  };
+  my $c = shift;
+  my $pin = $c->stash('pin');
+  return $c->reply->not_found unless $pins{$pin};
+  if ($c->req->method eq 'POST') {
+    $c->pin($pin, $c->req->body);
+  }
+  $c->render(text => $c->pin($pin));
 });
 
 app->start;
