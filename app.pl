@@ -1,6 +1,7 @@
 use Mojolicious::Lite;
 
 use Mojo::File 'path';
+use Mojo::JSON qw/false true/;
 
 sub _gpio { return path('/sys/class/gpio') }
 
@@ -38,7 +39,7 @@ helper pin => sub {
   return $out;
 };
 
-helper door_state => sub { 0 + ! shift->pin(16) };
+helper is_door_open => sub { shift->pin(16) ? false : true };
 
 helper toggle_door => sub {
   my $c = shift;
@@ -76,9 +77,13 @@ my $door = $api->any('/door');
 
 $door->get('/' => sub {
   my $c = shift;
-  my $open = $c->door_state ? \1 : \0;
-  $c->render(json => { open => $open });
-});
+  return $c->render(json => { open => $c->is_door_open })
+    unless $c->tx->is_websocket;
+
+  my $r = Mojo::IOLoop->recurring(1 => sub { $c->send({json => { open => $c->is_door_open }}) });
+  $c->on(finish => sub { Mojo::IOLoop->remove($r) });
+  $c->send({json => { open => $c->is_door_open }});
+})->name('door');
 
 $door->post('/' => sub {
   my $c = shift;
@@ -118,14 +123,20 @@ __DATA__
   % end
 </head>
 <body>
-  <div class="door-holder" onclick="openDoor()"><%== app->home->child(qw/art car.svg/)->slurp %></div>
+  <div class="door-holder" onclick="toggleDoor()"><%== app->home->child(qw/art car.svg/)->slurp %></div>
   <script>
-    var door_state = <%= door_state %>;
-    document.addEventListener("DOMContentLoaded", function(event) {
-      if (!door_state) return;
-      document.getElementById('layer2').classList.add('open');
-    });
-    function openDoor() {
+    var door;
+    var ws = new WebSocket('<%= url_for('door')->to_abs->scheme('ws') %>');
+    ws.onmessage = function(e) {
+      door = JSON.parse(e.data);
+      var c = document.getElementById('layer2').classList;
+      if (door.open) {
+        c.add('open');
+      } else {
+        c.remove('open');
+      }
+    }
+    function toggleDoor() {
       document.getElementById('layer2').classList.toggle('open');
     }
   </script>
