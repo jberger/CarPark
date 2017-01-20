@@ -22,7 +22,7 @@ helper unexport => sub {
   _gpio->child('unexport')->spurt($pin);
 };
 
-helper mode => sub {
+helper pin_mode => sub {
   my ($c, $pin, $set) = @_;
   my $file = _pin($pin)->child('direction');
   $file->spurt($set) if defined $set;
@@ -40,6 +40,19 @@ helper pin => sub {
 
 helper door_state => sub { 0 + ! shift->pin(16) };
 
+helper toggle_door => sub {
+  my $c = shift;
+  Mojo::IOLoop->delay(
+    sub {
+      $c->pin(6, 1);
+      Mojo::IOLoop->timer(0.5 => shift->begin);
+    },
+    sub {
+      $c->pin(6, 0);
+    }
+  )->wait;
+};
+
 # >0 is out
 my %pins = (
   6  =>  1,
@@ -50,7 +63,7 @@ my %pins = (
 for my $pin (keys %pins) {
   next unless my $mode = $pins{$pin};
   app->export($pin);
-  app->mode($pin, $mode > 0 ? 'out' : 'in');
+  app->pin_mode($pin, $mode > 0 ? 'out' : 'in');
 }
 
 my $r = app->routes;
