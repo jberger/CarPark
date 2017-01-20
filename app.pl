@@ -76,8 +76,15 @@ my $door = $api->any('/door');
 
 $door->get('/' => sub {
   my $c = shift;
-  my $state = $c->door_state ? \1 : \0;
-  $c->render(json => { open => $state });
+  my $open = $c->door_state ? \1 : \0;
+  $c->render(json => { open => $open });
+});
+
+$door->post('/' => sub {
+  my $c = shift;
+  my $open = $c->req->json('/open');
+  $c->toggle_door if (!!$c->door_state) ^ (!!$open);
+  $c->rendered(202);
 });
 
 my $gpio = $api->any('/gpio');
