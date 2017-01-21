@@ -77,13 +77,15 @@ my $door = $api->any('/door');
 
 $door->get('/' => sub {
   my $c = shift;
-  return $c->render(json => { open => $c->is_door_open })
-    unless $c->tx->is_websocket;
+  $c->render(json => { open => $c->is_door_open });
+});
 
+$door->websocket('/socket' => sub {
+  my $c = shift;
   my $r = Mojo::IOLoop->recurring(1 => sub { $c->send({json => { open => $c->is_door_open }}) });
   $c->on(finish => sub { Mojo::IOLoop->remove($r) });
   $c->send({json => { open => $c->is_door_open }});
-})->name('door');
+})->name('socket');
 
 $door->post('/' => sub {
   my $c = shift;
@@ -126,7 +128,7 @@ __DATA__
   <div class="door-holder" onclick="toggleDoor()"><%== app->home->child(qw/art car.svg/)->slurp %></div>
   <script>
     var door;
-    var ws = new WebSocket('<%= url_for('door')->to_abs->scheme('ws') %>');
+    var ws = new WebSocket('<%= url_for('socket')->to_abs %>');
     ws.onmessage = function(e) {
       door = JSON.parse(e.data);
       var c = document.getElementById('layer2').classList;
