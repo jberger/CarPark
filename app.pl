@@ -54,17 +54,16 @@ helper toggle_door => sub {
   )->wait;
 };
 
-# >0 is out
 my %pins = (
-  6  =>  1,
-  16 => -1,
+  6  => 'out',
+  16 => 'in',
 );
 
 # ensure pins are exported correctly
 for my $pin (keys %pins) {
   next unless my $mode = $pins{$pin};
   app->export($pin);
-  app->pin_mode($pin, $mode > 0 ? 'out' : 'in');
+  app->pin_mode($pin);
 }
 
 my $r = app->routes;
