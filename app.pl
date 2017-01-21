@@ -88,7 +88,7 @@ $door->get('/' => sub {
 $door->post('/' => sub {
   my $c = shift;
   my $open = $c->req->json('/open');
-  $c->toggle_door if (!!$c->door_state) ^ (!!$open);
+  $c->toggle_door if (!!$c->is_door_open) ^ (!!$open);
   $c->rendered(202);
 });
 
@@ -137,7 +137,15 @@ __DATA__
       }
     }
     function toggleDoor() {
-      document.getElementById('layer2').classList.toggle('open');
+      if (!window.fetch) {
+        alert('Your browser is too old');
+        return;
+      }
+
+      window.fetch('<%= url_for 'door' %>', {
+        method: 'POST',
+        body: JSON.stringify({open: !door.open}),
+      });
     }
   </script>
 </body>
