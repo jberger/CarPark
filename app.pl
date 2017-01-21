@@ -115,23 +115,30 @@ __DATA__
 <!DOCTYPE html>
 <html>
 <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   %= stylesheet begin
-    #layer2 {
+    #layer-door {
       transition: transform 3.0s ease;
     }
-    #layer2.open {
+    #layer-door.open {
       transform: translateY(-100%);
+    }
+    @media (max-width: 800px) {
+      svg { max-width: 100%; }
+    }
+    @media (min-width: 800px) {
+      svg { max-height: 500px }
     }
   % end
 </head>
 <body>
-  <div class="door-holder" onclick="toggleDoor()"><%== app->home->child(qw/art car.svg/)->slurp %></div>
+  <div class="door-holder" onclick="toggleDoor()"><%== app->home->child(qw/art car.min.svg/)->slurp %></div>
   <script>
     var door;
     var ws = new WebSocket('<%= url_for('socket')->to_abs %>');
     ws.onmessage = function(e) {
       door = JSON.parse(e.data);
-      var c = document.getElementById('layer2').classList;
+      var c = document.getElementById('layer-door').classList;
       if (door.open) {
         c.add('open');
       } else {

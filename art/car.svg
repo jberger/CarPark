@@ -30,11 +30,11 @@
      inkscape:cx="224.72143"
      inkscape:cy="164.72468"
      inkscape:document-units="px"
-     inkscape:current-layer="layer1"
+     inkscape:current-layer="svg2"
      showgrid="false"
      units="px"
-     inkscape:window-width="1920"
-     inkscape:window-height="1151"
+     inkscape:window-width="1440"
+     inkscape:window-height="851"
      inkscape:window-x="0"
      inkscape:window-y="1"
      inkscape:window-maximized="1"
@@ -57,7 +57,7 @@
   <g
      inkscape:label="Car"
      inkscape:groupmode="layer"
-     id="layer1"
+     id="layer-car"
      transform="translate(0.30000001,-700.86196)"
      style="display:inline">
     <rect
@@ -185,7 +185,7 @@
   </g>
   <g
      inkscape:groupmode="layer"
-     id="layer2"
+     id="layer-door"
      inkscape:label="Door"
      style="display:inline"
      transform="translate(0.30000001,1.5001984)">
