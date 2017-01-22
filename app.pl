@@ -188,6 +188,7 @@ __DATA__
 
       window.fetch('<%= url_for 'door' %>', {
         method: 'POST',
+        credentials: 'include',
         body: JSON.stringify({open: !door.open}),
       });
     }
