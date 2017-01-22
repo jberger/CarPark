@@ -3,11 +3,16 @@ use Mojolicious::Lite;
 use Mojo::File 'path';
 use Mojo::JSON qw/false true/;
 
-plugin Config => {
+my $conf = plugin Config => {
   default => {
     users => {},
   },
+  plugins => {},
 };
+
+for my $plugin (keys %{ $conf->{plugins} }) {
+  plugin $plugin => ($conf->{plugins}{$plugin} // {});
+}
 
 sub _gpio { return path('/sys/class/gpio') }
 
