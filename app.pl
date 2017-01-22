@@ -39,7 +39,7 @@ helper pin => sub {
   return $out;
 };
 
-helper is_door_open => sub { shift->pin(16) ? false : true };
+helper is_door_open => sub { shift->pin(16) ? true : false };
 
 helper toggle_door => sub {
   my $c = shift;
