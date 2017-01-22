@@ -63,7 +63,7 @@ my %pins = (
 for my $pin (keys %pins) {
   next unless my $mode = $pins{$pin};
   app->export($pin);
-  app->pin_mode($pin);
+  app->pin_mode($pin => $mode);
 }
 
 my $r = app->routes;
