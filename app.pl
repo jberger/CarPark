@@ -6,13 +6,20 @@ use Mojo::JSON qw/false true/;
 my $conf = plugin Config => {
   default => {
     users => {},
+    pins => {
+      trigger => 6,
+      sensor  => 16,
+    },
+    plugins => {},
   },
-  plugins => {},
 };
 
 for my $plugin (keys %{ $conf->{plugins} }) {
   plugin $plugin => ($conf->{plugins}{$plugin} // {});
 }
+
+my ($trigger, $sensor) = @{ $conf->{pins} }{qw/trigger sensor/};
+die "trigger and sensor pins must be defined" unless $trigger && $sensor;
 
 sub _gpio { return path('/sys/class/gpio') }
 
@@ -50,33 +57,28 @@ helper pin => sub {
   return $out;
 };
 
-helper is_door_open => sub { shift->pin(16) ? true : false };
+helper is_door_open => sub { shift->pin($sensor) ? true : false };
 
 helper toggle_door => sub {
   my $c = shift;
   Mojo::IOLoop->delay(
     sub {
-      $c->pin(6, 1);
+      $c->pin($trigger, 1);
       Mojo::IOLoop->timer(0.5 => shift->begin);
     },
     sub {
-      $c->pin(6, 0);
+      $c->pin($trigger, 0);
     }
   )->wait;
 };
 
-my %pins = (
-  6  => 'out',
-  16 => 'in',
-);
-
 # ensure pins are exported correctly
-for my $pin (keys %pins) {
-  next unless my $mode = $pins{$pin};
-  app->export($pin);
-  app->pin_mode($pin => $mode);
-}
+app->export($trigger);
+app->pin_mode($trigger => 'out');
+app->export($sensor);
+app->pin_mode($sensor => 'in');
 
+# routes
 my $r = app->routes;
 
 $r->get('/login' => 'login');
@@ -139,7 +141,8 @@ my $gpio = $api->any('/gpio');
 $gpio->any([qw/GET POST/] => '/:pin' => sub {
   my $c = shift;
   my $pin = $c->stash('pin');
-  return $c->reply->not_found unless $pins{$pin};
+  return $c->reply->not_found 
+    unless $pin == $trigger || $pin == $sensor;
   if ($c->req->method eq 'POST') {
     $c->pin($pin, $c->req->body);
   }
