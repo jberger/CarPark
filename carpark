@@ -2,6 +2,7 @@ use Mojolicious::Lite;
 
 use Mojo::File 'path';
 use Mojo::JSON qw/false true/;
+use Time::HiRes ();
 
 my $conf = plugin Config => {
   default => {
@@ -31,8 +32,18 @@ sub _pin {
 
 helper export => sub {
   my ($c, $pin) = @_;
-  return if -e _pin($pin);
+  return 1 if -e _pin($pin);
   _gpio->child('export')->spurt($pin);
+
+  # it takes a while for gpio export to occur
+  my $direction = _pin($pin)->child('direction');
+  my $max = 10;
+  while ($max--) {
+    # export is complete once this file is writeable
+    return 1 if -w $direction;
+    Time::HiRes::sleep 0.1;
+  }
+  die "$direction did not export";
 };
 
 helper unexport => sub {
@@ -141,7 +152,7 @@ my $gpio = $api->any('/gpio');
 $gpio->any([qw/GET POST/] => '/:pin' => sub {
   my $c = shift;
   my $pin = $c->stash('pin');
-  return $c->reply->not_found 
+  return $c->reply->not_found
     unless $pin == $trigger || $pin == $sensor;
   if ($c->req->method eq 'POST') {
     $c->pin($pin, $c->req->body);
