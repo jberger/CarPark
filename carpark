@@ -1,11 +1,15 @@
 use Mojolicious::Lite;
 
+use FindBin;
+BEGIN { unshift @INC, "$FindBin::Bin/lib" }
+
 use Mojo::File 'path';
 use Mojo::JSON qw/false true/;
 use Time::HiRes ();
 
 my $conf = plugin Config => {
   default => {
+    db => undef,
     users => {},
     pins => {
       trigger => 6,
@@ -14,6 +18,8 @@ my $conf = plugin Config => {
     plugins => {},
   },
 };
+
+plugin 'CarPark::Plugin::Model' => {file => $conf->{db}};
 
 for my $plugin (keys %{ $conf->{plugins} }) {
   plugin $plugin => ($conf->{plugins}{$plugin} // {});
