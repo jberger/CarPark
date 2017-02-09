@@ -3,9 +3,7 @@ use Mojolicious::Lite;
 use FindBin;
 BEGIN { unshift @INC, "$FindBin::Bin/lib" }
 
-use Mojo::File 'path';
 use Mojo::JSON qw/false true/;
-use Time::HiRes ();
 
 my $conf = plugin Config => {
   default => {
@@ -28,72 +26,29 @@ for my $plugin (keys %{ $conf->{plugins} }) {
 my ($trigger, $sensor) = @{ $conf->{pins} }{qw/trigger sensor/};
 die "trigger and sensor pins must be defined" unless $trigger && $sensor;
 
-sub _gpio { return path('/sys/class/gpio') }
-
-sub _pin {
-  my $pin = shift;
-  $pin // die 'pin is required';
-  return _gpio->child("gpio$pin");
-}
-
-helper export => sub {
-  my ($c, $pin) = @_;
-  return 1 if -e _pin($pin);
-  _gpio->child('export')->spurt($pin);
-
-  # it takes a while for gpio export to occur
-  my $direction = _pin($pin)->child('direction');
-  my $max = 10;
-  while ($max--) {
-    # export is complete once this file is writeable
-    return 1 if -w $direction;
-    Time::HiRes::sleep 0.1;
-  }
-  die "$direction did not export";
-};
-
-helper unexport => sub {
-  my ($c, $pin) = @_;
-  return unless -e _pin($pin);
-  _gpio->child('unexport')->spurt($pin);
-};
-
-helper pin_mode => sub {
-  my ($c, $pin, $set) = @_;
-  my $file = _pin($pin)->child('direction');
-  $file->spurt($set) if defined $set;
-  chomp (my $out = $file->slurp);
-  return $out;
-};
-
-helper pin => sub {
-  my ($c, $pin, $val) = @_;
-  my $file = _pin($pin)->child('value');
-  $file->spurt($val) if defined $val;
-  chomp (my $out = $file->slurp);
-  return $out;
-};
-
-helper is_door_open => sub { shift->pin($sensor) ? true : false };
+helper is_door_open => sub { shift->model->gpio->pin($sensor) ? true : false };
 
 helper toggle_door => sub {
   my $c = shift;
   Mojo::IOLoop->delay(
     sub {
-      $c->pin($trigger, 1);
+      $c->model->gpio->pin($trigger, 1);
       Mojo::IOLoop->timer(0.5 => shift->begin);
     },
     sub {
-      $c->pin($trigger, 0);
+      $c->model->gpio->pin($trigger, 0);
     }
   )->wait;
 };
 
 # ensure pins are exported correctly
-app->export($trigger);
-app->pin_mode($trigger => 'out');
-app->export($sensor);
-app->pin_mode($sensor => 'in');
+unless ($conf->{no_init}) {
+  my $model = app->model->gpio;
+  $model->export($trigger);
+  $model->pin_mode($trigger => 'out');
+  $model->export($sensor);
+  $model->pin_mode($sensor => 'in');
+}
 
 # routes
 my $r = app->routes;
@@ -160,10 +115,12 @@ $gpio->any([qw/GET POST/] => '/:pin' => sub {
   my $pin = $c->stash('pin');
   return $c->reply->not_found
     unless $pin == $trigger || $pin == $sensor;
+
+  my $model = $c->model->gpio;
   if ($c->req->method eq 'POST') {
-    $c->pin($pin, $c->req->body);
+    $model->pin($pin, $c->req->body);
   }
-  $c->render(text => $c->pin($pin));
+  $c->render(text => $model->pin($pin));
 });
 
 app->start;
