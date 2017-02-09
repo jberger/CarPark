@@ -1,105 +1,111 @@
-use Mojolicious::Lite;
+package CarPark;
 
-use FindBin;
-BEGIN { unshift @INC, "$FindBin::Bin/lib" }
+use Mojo::Base 'Mojolicious';
 
-my $conf = plugin Config => {
-  default => {
-    db => undef,
-    users => {},
-    pins => {
-      trigger => 6,
-      sensor  => 16,
+sub startup {
+  my $app = shift;
+  $app->moniker('carpark');
+  $app->renderer->classes([__PACKAGE__]);
+
+  my $conf = $app->plugin(Config => {
+    default => {
+      db => undef,
+      users => {},
+      pins => {
+        trigger => 6,
+        sensor  => 16,
+      },
+      plugins => {},
     },
-    plugins => {},
-  },
-};
+  });
 
-plugin 'CarPark::Plugin::Model' => {file => $conf->{db}};
+  $app->plugin('CarPark::Plugin::Model' => {file => $conf->{db}});
 
-for my $plugin (keys %{ $conf->{plugins} }) {
-  plugin $plugin => ($conf->{plugins}{$plugin} // {});
+  for my $plugin (keys %{ $conf->{plugins} }) {
+    $app->plugin($plugin => ($conf->{plugins}{$plugin} // {}));
+  }
+
+  # ensure pins are exported correctly
+  $app->model->door->initialize unless $conf->{no_init};
+
+  # routes
+  my $r = $app->routes;
+
+  $r->get('/login' => 'login');
+
+  $r->post('/login' => sub {
+    my $c = shift;
+    my $users = $c->app->config->{users};
+    my $user = $c->param('username');
+    if (my $pass = $users->{$user}) {
+      if ($c->param('password') eq $pass) {
+        $c->session->{username} = $user;
+        return $c->redirect_to('index');
+      }
+    }
+    $c->render('login');
+  });
+
+  $r->get('/logout' => sub {
+    my $c = shift;
+    $c->session->{expires} = 1;
+    $c->redirect_to('login');
+  });
+
+  my $auth = $r->under('/' => sub {
+    my $c = shift;
+
+    return 1 if $c->session->{username};
+
+    $c->redirect_to('login');
+    return 0;
+  });
+
+  $auth->get('/' => 'index');
+
+  my $api = $auth->any('/api');
+
+  my $door = $api->any('/door');
+
+  $door->get('/' => sub {
+    my $c = shift;
+    $c->render(json => { open => $c->model->door->is_open });
+  });
+
+  $door->websocket('/socket' => sub {
+    my $c = shift;
+    my $door = $c->model->door;
+    my $r = Mojo::IOLoop->recurring(1 => sub { $c->send({json => { open => $door->is_open }}) });
+    $c->on(finish => sub { Mojo::IOLoop->remove($r) });
+    $c->send({json => { open => $door->is_open }});
+  })->name('socket');
+
+  $door->post('/' => sub {
+    my $c = shift;
+    my $open = $c->req->json('/open');
+    my $door = $c->model->door;
+    $door->toggle if (!!$door->is_open) ^ (!!$open);
+    $c->rendered(202);
+  });
+
+  my $gpio = $api->any('/gpio');
+
+  $gpio->any([qw/GET POST/] => '/:pin' => sub {
+    my $c = shift;
+    my $pin = $c->stash('pin');
+    my $gpio = $c->model->gpio;
+    return $c->reply->not_found
+      unless $gpio->is_exported($pin);
+
+    if ($c->req->method eq 'POST') {
+      $gpio->pin($pin, $c->req->body);
+    }
+    $c->render(text => $gpio->pin($pin));
+  });
+
 }
 
-# ensure pins are exported correctly
-app->model->door->initialize unless $conf->{no_init};
-
-# routes
-my $r = app->routes;
-
-$r->get('/login' => 'login');
-
-$r->post('/login' => sub {
-  my $c = shift;
-  my $users = $c->app->config->{users};
-  my $user = $c->param('username');
-  if (my $pass = $users->{$user}) {
-    if ($c->param('password') eq $pass) {
-      $c->session->{username} = $user;
-      return $c->redirect_to('index');
-    }
-  }
-  $c->render('login');
-});
-
-$r->get('/logout' => sub {
-  my $c = shift;
-  $c->session->{expires} = 1;
-  $c->redirect_to('login');
-});
-
-my $auth = $r->under('/' => sub {
-  my $c = shift;
-
-  return 1 if $c->session->{username};
-
-  $c->redirect_to('login');
-  return 0;
-});
-
-$auth->get('/' => 'index');
-
-my $api = $auth->any('/api');
-
-my $door = $api->any('/door');
-
-$door->get('/' => sub {
-  my $c = shift;
-  $c->render(json => { open => $c->model->door->is_open });
-});
-
-$door->websocket('/socket' => sub {
-  my $c = shift;
-  my $door = $c->model->door;
-  my $r = Mojo::IOLoop->recurring(1 => sub { $c->send({json => { open => $door->is_open }}) });
-  $c->on(finish => sub { Mojo::IOLoop->remove($r) });
-  $c->send({json => { open => $door->is_open }});
-})->name('socket');
-
-$door->post('/' => sub {
-  my $c = shift;
-  my $open = $c->req->json('/open');
-  my $door = $c->model->door;
-  $door->toggle if (!!$door->is_open) ^ (!!$open);
-  $c->rendered(202);
-});
-
-my $gpio = $api->any('/gpio');
-
-$gpio->any([qw/GET POST/] => '/:pin' => sub {
-  my $c = shift;
-  my $pin = $c->stash('pin');
-  my $gpio = $c->model->gpio;
-  return $c->reply->not_found
-    unless $gpio->is_exported($pin);
-
-  if ($c->req->method eq 'POST') {
-    $gpio->pin($pin, $c->req->body);
-  }
-  $c->render(text => $gpio->pin($pin));
-});
-
-app->start;
+1;
 
 __DATA__
 
