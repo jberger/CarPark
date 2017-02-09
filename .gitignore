@@ -1,5 +1,6 @@
 *.swp
 *.conf
 *.pid
+*.db
 cpanfile.snapshot
 local/
