@@ -4,6 +4,7 @@ use Mojo::Base 'Mojolicious::Plugin';
 
 use DBM::Deep;
 
+use CarPark::Model::Door;
 use CarPark::Model::GPIO;
 use CarPark::Model::User;
 
@@ -14,6 +15,7 @@ sub register {
   my $db = DBM::Deep->new($file);
   $app->helper(db => sub { $db });
 
+  $app->helper('model.door' => sub { _build_model('CarPark::Model::Door' => @_) });
   $app->helper('model.gpio' => sub { _build_model('CarPark::Model::GPIO' => @_) });
   $app->helper('model.user' => sub { _build_model('CarPark::Model::User' => @_) });
 }

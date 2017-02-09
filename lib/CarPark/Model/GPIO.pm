@@ -13,20 +13,25 @@ sub _pin {
   return _gpio->child("gpio$pin");
 }
 
+sub is_exported {
+  my ($self, $pin) = @_;
+  my $dir = _pin($pin)->child('direction');
+  return -w $dir;
+}
+
 sub export {
   my ($self, $pin) = @_;
   return 1 if -e _pin($pin);
   _gpio->child('export')->spurt($pin);
 
   # it takes a while for gpio export to occur
-  my $direction = _pin($pin)->child('direction');
   my $max = 10;
   while ($max--) {
     # export is complete once this file is writeable
-    return 1 if -w $direction;
+    return 1 if $self->is_exported($pin);
     Time::HiRes::sleep 0.1;
   }
-  die "$direction did not export";
+  die "pin $pin did not export";
 }
 
 sub unexport {

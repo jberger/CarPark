@@ -3,8 +3,6 @@ use Mojolicious::Lite;
 use FindBin;
 BEGIN { unshift @INC, "$FindBin::Bin/lib" }
 
-use Mojo::JSON qw/false true/;
-
 my $conf = plugin Config => {
   default => {
     db => undef,
@@ -23,32 +21,8 @@ for my $plugin (keys %{ $conf->{plugins} }) {
   plugin $plugin => ($conf->{plugins}{$plugin} // {});
 }
 
-my ($trigger, $sensor) = @{ $conf->{pins} }{qw/trigger sensor/};
-die "trigger and sensor pins must be defined" unless $trigger && $sensor;
-
-helper is_door_open => sub { shift->model->gpio->pin($sensor) ? true : false };
-
-helper toggle_door => sub {
-  my $c = shift;
-  Mojo::IOLoop->delay(
-    sub {
-      $c->model->gpio->pin($trigger, 1);
-      Mojo::IOLoop->timer(0.5 => shift->begin);
-    },
-    sub {
-      $c->model->gpio->pin($trigger, 0);
-    }
-  )->wait;
-};
-
 # ensure pins are exported correctly
-unless ($conf->{no_init}) {
-  my $model = app->model->gpio;
-  $model->export($trigger);
-  $model->pin_mode($trigger => 'out');
-  $model->export($sensor);
-  $model->pin_mode($sensor => 'in');
-}
+app->model->door->initialize unless $conf->{no_init};
 
 # routes
 my $r = app->routes;
@@ -91,20 +65,22 @@ my $door = $api->any('/door');
 
 $door->get('/' => sub {
   my $c = shift;
-  $c->render(json => { open => $c->is_door_open });
+  $c->render(json => { open => $c->model->door->is_open });
 });
 
 $door->websocket('/socket' => sub {
   my $c = shift;
-  my $r = Mojo::IOLoop->recurring(1 => sub { $c->send({json => { open => $c->is_door_open }}) });
+  my $door = $c->model->door;
+  my $r = Mojo::IOLoop->recurring(1 => sub { $c->send({json => { open => $door->is_open }}) });
   $c->on(finish => sub { Mojo::IOLoop->remove($r) });
-  $c->send({json => { open => $c->is_door_open }});
+  $c->send({json => { open => $door->is_open }});
 })->name('socket');
 
 $door->post('/' => sub {
   my $c = shift;
   my $open = $c->req->json('/open');
-  $c->toggle_door if (!!$c->is_door_open) ^ (!!$open);
+  my $door = $c->model->door;
+  $door->toggle if (!!$door->is_open) ^ (!!$open);
   $c->rendered(202);
 });
 
@@ -113,14 +89,14 @@ my $gpio = $api->any('/gpio');
 $gpio->any([qw/GET POST/] => '/:pin' => sub {
   my $c = shift;
   my $pin = $c->stash('pin');
+  my $gpio = $c->model->gpio;
   return $c->reply->not_found
-    unless $pin == $trigger || $pin == $sensor;
+    unless $gpio->is_exported($pin);
 
-  my $model = $c->model->gpio;
   if ($c->req->method eq 'POST') {
-    $model->pin($pin, $c->req->body);
+    $gpio->pin($pin, $c->req->body);
   }
-  $c->render(text => $model->pin($pin));
+  $c->render(text => $gpio->pin($pin));
 });
 
 app->start;
