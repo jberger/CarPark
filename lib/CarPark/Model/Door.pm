@@ -26,7 +26,7 @@ sub initialize {
 sub is_open {
   my $self = shift;
   my $sensor = $self->pins->{sensor};
-  $self->model->gpio->pin($sensor) ? true : false;
+  $self->gpio->pin($sensor) ? true : false;
 }
 
 sub toggle {
