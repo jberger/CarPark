@@ -16,7 +16,7 @@ sub add_user {
     roles => {},
   };
   $self->set_password($username, $pass);
-  $self->set_roles($username, @roles) if @roles;
+  $self->add_roles($username, @roles) if @roles;
   $db->unlock;
   return 1;
 }
