@@ -10,7 +10,6 @@ sub startup {
   my $conf = $app->plugin(Config => {
     default => {
       db => undef,
-      users => {},
       pins => {
         trigger => 6,
         sensor  => 16,
@@ -19,15 +18,10 @@ sub startup {
     },
   });
 
-  {
-    my %model_config;
-    my @keys = (qw/users pins/);
-    @model_config{@keys} = @{$conf}{@keys};
-    $app->plugin('CarPark::Plugin::Model' => {
-      config => \%model_config,
-      db     => $conf->{db},
-    });
-  }
+  $app->plugin('CarPark::Plugin::Model' => {
+    config => {pins => $conf->{pins}},
+    db     => $conf->{db},
+  });
 
   for my $plugin (keys %{ $conf->{plugins} }) {
     $app->plugin($plugin => ($conf->{plugins}{$plugin} // {}));
@@ -43,13 +37,11 @@ sub startup {
 
   $r->post('/login' => sub {
     my $c = shift;
-    my $users = $c->app->config->{users};
     my $user = $c->param('username');
-    if (my $pass = $users->{$user}) {
-      if ($c->param('password') eq $pass) {
-        $c->session->{username} = $user;
-        return $c->redirect_to('index');
-      }
+    my $pass = $c->param('password');
+    if ($c->model->user->check_password($user, $pass)) {
+      $c->session->{username} = $user;
+      return $c->redirect_to('index');
     }
     $c->render('login');
   });
