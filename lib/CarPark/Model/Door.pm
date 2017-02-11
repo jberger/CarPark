@@ -5,9 +5,9 @@ use Mojo::Base 'CarPark::Model';
 use Mojo::IOLoop;
 use Mojo::JSON qw/false true/;
 
-has gpio => sub { shift->app->model->gpio };
+has gpio => sub { shift->model('gpio') };
 
-has pins => sub { shift->app->config->{pins} };
+has pins => sub { shift->config->{pins} };
 
 sub initialize {
   my $self = shift;

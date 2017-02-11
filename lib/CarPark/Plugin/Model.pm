@@ -4,25 +4,26 @@ use Mojo::Base 'Mojolicious::Plugin';
 
 use DBM::Deep;
 
-use CarPark::Model::Door;
-use CarPark::Model::GPIO;
-use CarPark::Model::User;
+use CarPark::Model;
 
 sub register {
   my ($plugin, $app, $conf) = @_;
 
-  my $file = $conf->{file} // 'carpark.db';
+  # database
+  my $file = $conf->{db} // 'carpark.db';
   my $db = DBM::Deep->new($file);
   $app->helper(db => sub { $db });
 
-  $app->helper('model.door' => sub { _build_model('CarPark::Model::Door' => @_) });
-  $app->helper('model.gpio' => sub { _build_model('CarPark::Model::GPIO' => @_) });
-  $app->helper('model.user' => sub { _build_model('CarPark::Model::User' => @_) });
-}
+  # base model
+  my $model = CarPark::Model->new(
+    config => $conf->{config} || {},
+    db     => $db,
+  );
 
-sub _build_model {
-  my ($class, $c) = (shift, shift);
-  return $class->new(@_)->app($c->app);
+  # model aliases
+  for my $type (qw/door gpio user/) {
+    $app->helper("model.$type" => sub { shift; $model->model($type => @_) });
+  }
 }
 
 1;

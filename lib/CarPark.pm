@@ -19,7 +19,15 @@ sub startup {
     },
   });
 
-  $app->plugin('CarPark::Plugin::Model' => {file => $conf->{db}});
+  {
+    my %model_config;
+    my @keys = (qw/users pins/);
+    @model_config{@keys} = @{$conf}{@keys};
+    $app->plugin('CarPark::Plugin::Model' => {
+      config => \%model_config,
+      db     => $conf->{db},
+    });
+  }
 
   for my $plugin (keys %{ $conf->{plugins} }) {
     $app->plugin($plugin => ($conf->{plugins}{$plugin} // {}));
