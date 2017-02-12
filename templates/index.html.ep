@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  %= stylesheet begin
+    #layer-door {
+      transition: transform 3.0s ease;
+    }
+    #layer-door.open {
+      transform: translateY(-100%);
+    }
+    @media (max-width: 800px) {
+      svg { max-width: 100%; }
+    }
+    @media (min-width: 800px) {
+      svg { max-height: 500px }
+    }
+  % end
+</head>
+<body>
+  <div class="door-holder" onclick="toggleDoor()"><%== app->home->child(qw/art car.min.svg/)->slurp %></div>
+  <script>
+    var door;
+    var ws = new WebSocket('<%= url_for('socket')->to_abs %>');
+    ws.onmessage = function(e) {
+      door = JSON.parse(e.data);
+      var c = document.getElementById('layer-door').classList;
+      if (door.open) {
+        c.add('open');
+      } else {
+        c.remove('open');
+      }
+    }
+    function toggleDoor() {
+      if (!window.fetch) {
+        alert('Your browser is too old');
+        return;
+      }
+
+      window.fetch('<%= url_for 'door' %>', {
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify({open: !door.open}),
+      });
+    }
+  </script>
+</body>
+</html>
+
+
