@@ -19,5 +19,12 @@ sub logout {
   $c->redirect_to('login');
 }
 
+sub authenticated {
+  my $c = shift;
+  return 1 if $c->session->{username};
+  $c->redirect_to('login');
+  return 0;
+}
+
 1;
 

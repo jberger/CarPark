@@ -36,26 +36,19 @@ sub startup {
   $r->post('/login')->to('Access#login');
   $r->get('/logout')->to('Access#logout');
 
-  my $auth = $r->under('/' => sub {
-    my $c = shift;
-
-    return 1 if $c->session->{username};
-
-    $c->redirect_to('login');
-    return 0;
-  });
+  my $auth = $r->under('/')->to('Access#authenticated');
 
   $auth->get('/')->to(template => 'index')->name('index');
 
   my $api = $auth->any('/api');
 
-  my $door = $api->any('/door');
-  $door->get('/')->to('Door#get_state');
-  $door->post('/')->to('Door#set_state');
-  $door->websocket('/socket')->to('Door#socket')->name('socket');
+  my $door = $api->any('/door')->to('Door#');
+  $door->get('/')->to('#get_state');
+  $door->post('/')->to('#set_state');
+  $door->websocket('/socket')->to('#socket')->name('socket');
 
-  my $gpio = $api->any('/gpio');
-  $gpio->any([qw/GET POST/] => '/:pin')->to('GPIO#pin');
+  my $gpio = $api->any('/gpio')->to('GPIO#');
+  $gpio->any([qw/GET POST/] => '/:pin')->to('#pin');
 }
 
 1;

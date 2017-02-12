@@ -1,4 +1,4 @@
-use CarPark::Controller::Door;
+package CarPark::Controller::Door;
 
 use Mojo::Base 'Mojolicious::Controller';
 
