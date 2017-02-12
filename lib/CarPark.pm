@@ -33,24 +33,9 @@ sub startup {
   # routes
   my $r = $app->routes;
 
-  $r->get('/login' => 'login');
-
-  $r->post('/login' => sub {
-    my $c = shift;
-    my $user = $c->param('username');
-    my $pass = $c->param('password');
-    if ($c->model->user->check_password($user, $pass)) {
-      $c->session->{username} = $user;
-      return $c->redirect_to('index');
-    }
-    $c->render('login');
-  });
-
-  $r->get('/logout' => sub {
-    my $c = shift;
-    $c->session->{expires} = 1;
-    $c->redirect_to('login');
-  });
+  $r->get('/login')->to(template => 'login');
+  $r->post('/login')->to('Access#login');
+  $r->get('/logout')->to('Access#logout');
 
   my $auth = $r->under('/' => sub {
     my $c = shift;
@@ -61,48 +46,17 @@ sub startup {
     return 0;
   });
 
-  $auth->get('/' => 'index');
+  $auth->get('/')->to(template => 'index');
 
   my $api = $auth->any('/api');
 
   my $door = $api->any('/door');
-
-  $door->get('/' => sub {
-    my $c = shift;
-    $c->render(json => { open => $c->model->door->is_open });
-  });
-
-  $door->websocket('/socket' => sub {
-    my $c = shift;
-    my $door = $c->model->door;
-    my $r = Mojo::IOLoop->recurring(1 => sub { $c->send({json => { open => $door->is_open }}) });
-    $c->on(finish => sub { Mojo::IOLoop->remove($r) });
-    $c->send({json => { open => $door->is_open }});
-  })->name('socket');
-
-  $door->post('/' => sub {
-    my $c = shift;
-    my $open = $c->req->json('/open');
-    my $door = $c->model->door;
-    $door->toggle if (!!$door->is_open) ^ (!!$open);
-    $c->rendered(202);
-  });
+  $door->get('/')->to('Door#get_state');
+  $door->post('/')->to('Door#set_state');
+  $door->websocket('/socket')->to('Door#socket')->name('socket');
 
   my $gpio = $api->any('/gpio');
-
-  $gpio->any([qw/GET POST/] => '/:pin' => sub {
-    my $c = shift;
-    my $pin = $c->stash('pin');
-    my $gpio = $c->model->gpio;
-    return $c->reply->not_found
-      unless $gpio->is_exported($pin);
-
-    if ($c->req->method eq 'POST') {
-      $gpio->pin($pin, $c->req->body);
-    }
-    $c->render(text => $gpio->pin($pin));
-  });
-
+  $gpio->any([qw/GET POST/] => '/:pin')->to('GPIO#pin');
 }
 
 1;
