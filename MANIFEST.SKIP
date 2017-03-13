@@ -1,0 +1,9 @@
+#!include_default
+
+\bCarPark-[.\d]+\.tar\.gz
+
+# Avoid README which is intended for github
+\bREADME\.pod$
+
+# Avoid App::ModuleBuildTiny files
+\bmetamerge.*
