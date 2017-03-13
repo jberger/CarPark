@@ -18,7 +18,7 @@
   % end
 </head>
 <body>
-  <div class="door-holder" onclick="toggleDoor()"><%== app->home->child(qw/art car.min.svg/)->slurp %></div>
+  <div class="door-holder" onclick="toggleDoor()"><%== app->share_dir->child(qw/art car.min.svg/)->slurp %></div>
   <script>
     var door;
     var ws = new WebSocket('<%= url_for('socket')->to_abs %>');

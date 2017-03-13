@@ -2,6 +2,13 @@ package CarPark;
 
 use Mojo::Base 'Mojolicious';
 
+use File::Share ();
+use Mojo::File;
+
+has share_dir => sub {
+  Mojo::File->new( File::Share::dist_dir( 'CarPark' ) );
+};
+
 sub startup {
   my $app = shift;
   $app->moniker('carpark');
@@ -16,6 +23,8 @@ sub startup {
       plugins => {},
     },
   });
+
+  $app->renderer->paths([ $app->share_dir->child('templates')->to_string ]);
 
   $app->plugin('CarPark::Plugin::Model' => {
     config => {pins => $conf->{pins}},
