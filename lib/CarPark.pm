@@ -5,6 +5,9 @@ use Mojo::Base 'Mojolicious';
 use File::Share ();
 use Mojo::File;
 
+use DBM::Deep;
+use CarPark::Model;
+
 has share_dir => sub {
   Mojo::File->new( File::Share::dist_dir( 'CarPark' ) );
 };
@@ -26,10 +29,17 @@ sub startup {
 
   $app->renderer->paths([ $app->share_dir->child('templates')->to_string ]);
 
-  $app->plugin('CarPark::Plugin::Model' => {
+  # database
+  my $file = $conf->{db} // 'carpark.db';
+  my $db = DBM::Deep->new($file);
+  $app->helper(db => sub { $db });
+
+  # base model
+  my $model = CarPark::Model->new(
     config => {pins => $conf->{pins}},
-    db     => $conf->{db},
-  });
+    db     => $db,
+  );
+  $app->plugin(TypeModel => {base => $model});
 
   for my $plugin (keys %{ $conf->{plugins} }) {
     $app->plugin($plugin => ($conf->{plugins}{$plugin} // {}));
